@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <style>img[alt="www.000webhost.com"]{display: none;</style>
+  <style>
+    /* Video chat styles (same as before) */
+    body, h1, video, button {
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: none;
+      outline: none;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+      background-color: #f2f2f2;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .video-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    video {
+      width: 480px;
+      height: 360px;
+      object-fit: cover;
+      background-color: #ccc; /* Placeholder background color */
+    }
+
+    #screenVideo {
+      display: none; /* Initially hide the screen share video */
+      width: auto; /* Set width to auto for maintaining aspect ratio */
+      height: auto; /* Set height to auto for maintaining aspect ratio */
+      max-width: 100%; /* Ensure video doesn't exceed container width */
+      max-height: 100%; /* Ensure video doesn't exceed container height */
+      object-fit: contain; /* Preserve aspect ratio without cropping */
+      background-color: #eee; /* Screen share placeholder background color */
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #shareScreenButton {
+      background-color: #ff8800; /* Modified color for screen share button */
+    }
+
+    /* Styles for text chat iframe */
+    .text-chat-container {
+      box-shadow: rgba(156, 172, 172, 0.2) 0px 2px 2px, rgba(156, 172, 172, 0.2) 0px 4px 4px, rgba(156, 172, 172, 0.2) 0px 8px 8px, rgba(156, 172, 172, 0.2) 0px 16px 16px, rgba(156, 172, 172, 0.2) 0px 32px 32px, rgba(156, 172, 172, 0.2) 0px 64px 64px;
+      border-radius: 3px;
+      height: 600px;
+      width: 405px;
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    iframe {
+      flex-grow: 1;
+      border: none;
+    }
+
+    .room-hash-input {
+     
+      font-size: 16px;
+    }
+
+    .enter-room-button {
+      padding: 10px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px;
+    }
+
+    /* Adjustments for positioning text chat iframe */
+    .video-text-container {
+      display: flex;
+    }
+
+    .video-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-right: 40px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Send your URL to a friend to start a video call</h1>
+
+  <div class="video-text-container">
+    <div class="video-column">
+      <div class="video-container">
+        <video id="localVideo" autoplay muted></video>
+        <video id="remoteVideo" autoplay muted></video>
+      </div>
+
+
+     
+
+   
+
+  <script>
+    // Video Chat Code (same as before)
+  // Generate random room name if needed
+if (!location.hash) {
+  location.hash = Math.floor(Math.random() * 0xFFFFFF).toString(16);
+}
+const roomHash = location.hash.substring(1);
+  
+// TODO: Replace with your own channel ID
+const drone = new ScaleDrone('rCjTly38VieH3Dmk');
+// Room name needs to be prefixed with 'observable-'
+const roomName = 'observable-' + roomHash;
+const configuration = {
+  iceServers: [{
+    urls: 'stun:stun.l.google.com:19302'
+  }]
+};
+let room;
+let pc;
+  
+  
+function onSuccess() {};
+function onError(error) {
+  console.error(error);
+};
+  
+drone.on('open', error => {
+  if (error) {
+    return console.error(error);
+  }
+  room = drone.subscribe(roomName);
+  room.on('open', error => {
+    if (error) {
+      onError(error);
+    }
+  });
+  // We're connected to the room and received an array of 'members'
+  // connected to the room (including us). Signaling server is ready.
+  room.on('members', members => {
+    console.log('MEMBERS', members);
+    // If we are the second user to connect to the room we will be creating the offer
+    const isOfferer = members.length === 2;
+    startWebRTC(isOfferer);
+  });
+});
+  
+// Send signaling data via Scaledrone
+function sendMessage(message) {
+  drone.publish({
+    room: roomName,
+    message
+  });
+}
+  
+function startWebRTC(isOfferer) {
+  pc = new RTCPeerConnection(configuration);
+  
+  // 'onicecandidate' notifies us whenever an ICE agent needs to deliver a
+  // message to the other peer through the signaling server
+  pc.onicecandidate = event => {
+    if (event.candidate) {
+      sendMessage({'candidate': event.candidate});
+    }
+  };
+  
+  // If user is offerer let the 'negotiationneeded' event create the offer
+  if (isOfferer) {
+    pc.onnegotiationneeded = () => {
+      pc.createOffer().then(localDescCreated).catch(onError);
+    }
+  }
+  
+  // When a remote stream arrives display it in the #remoteVideo element
+  pc.onaddstream = event => {
+    remoteVideo.srcObject = event.stream;
+  };
+  
+  navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: true,
+  }).then(stream => {
+    // Display your local video in #localVideo element
+    localVideo.srcObject = stream;
+    // Add your stream to be sent to the conneting peer
+    pc.addStream(stream);
+  }, onError);
+  
+  // Listen to signaling data from Scaledrone
+  room.on('data', (message, client) => {
+    // Message was sent by us
+    if (client.id === drone.clientId) {
+      return;
+    }
+  
+    if (message.sdp) {
+      // This is called after receiving an offer or answer from another peer
+      pc.setRemoteDescription(new RTCSessionDescription(message.sdp), () => {
+        // When receiving an offer lets answer it
+        if (pc.remoteDescription.type === 'offer') {
+          pc.createAnswer().then(localDescCreated).catch(onError);
+        }
+      }, onError);
+    } else if (message.candidate) {
+      // Add the new ICE candidate to our connections remote description
+      pc.addIceCandidate(
+        new RTCIceCandidate(message.candidate), onSuccess, onError
+      );
+    }
+  });
+}
+  
+function localDescCreated(desc) {
+  pc.setLocalDescription(
+    desc,
+    () => sendMessage({'sdp': pc.localDescription}),
+    onError
+  );
+}
+
+
+    // Get toggle button elements
+    const toggleCameraBtn = document.getElementById('toggleCameraBtn');
+    const toggleMicBtn = document.getElementById('toggleMicBtn');
+    const leaveBtn = document.getElementById('leaveBtn');
+
+    // Toggle camera on/off
+    toggleCameraBtn.addEventListener('click', () => {
+      const localVideo = document.getElementById('localVideo');
+      const videoTracks = localVideo.srcObject.getVideoTracks();
+      videoTracks.forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      toggleCameraBtn.textContent = videoTracks[0].enabled ? 'Camera On' : 'Camera Off';
+    });
+
+    // Toggle microphone on/off
+    toggleMicBtn.addEventListener('click', () => {
+      const localVideo = document.getElementById('localVideo');
+      const audioTracks = localVideo.srcObject.getAudioTracks();
+      audioTracks.forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      toggleMicBtn.textContent = audioTracks[0].enabled ? 'Mic On' : 'Mic Off';
+    });
+
+    // Leave the video call
+    leaveBtn.addEventListener('click', () => {
+      // Stop the local stream tracks
+      const localVideo = document.getElementById('localVideo');
+      const localStream = localVideo.srcObject;
+      localStream.getTracks().forEach(track => {
+        track.stop();
+      });
+
+      // Stop the remote stream tracks
+      const remoteVideo = document.getElementById('remoteVideo');
+      const remoteStream = remoteVideo.srcObject;
+      remoteStream.getTracks().forEach(track => {
+        track.stop();
+      });
+
+      // Clear the srcObject to stop video playback
+      localVideo.srcObject = null;
+      remoteVideo.srcObject = null;
+
+      // Hide the video elements
+      localVideo.style.display = 'none';
+      remoteVideo.style.display = 'none';
+
+      // Hide the control buttons
+      toggleCameraBtn.style.display = 'none';
+      toggleMicBtn.style.display = 'none';
+      leaveBtn.style.display = 'none';
+
+      // Show a leave message
+      const leaveMessage = document.createElement('div');
+      leaveMessage.textContent = 'You have left the video call';
+      document.body.appendChild(leaveMessage);
+    });
+
+    // JavaScript code for handling screen sharing
+    const shareScreenButton = document.getElementById('shareScreenButton');
+    const screenVideo = document.getElementById('screenVideo');
+    let mediaStream = null;
+
+    // Add a click event listener to the share screen button
+    shareScreenButton.addEventListener('click', async () => {
+      try {
+        if (mediaStream === null) {
+          // Start screen sharing
+          mediaStream = await navigator.mediaDevices.getDisplayMedia();
+          screenVideo.srcObject = mediaStream;
+          shareScreenButton.textContent = 'Stop Sharing';
+        } else {
+          // Stop screen sharing
+          mediaStream.getTracks().forEach(track => track.stop());
+          screenVideo.srcObject = null;
+          mediaStream = null;
+          shareScreenButton.textContent = 'Share Screen';
+        }
+      } catch (error) {
+        // Handle any errors that occur during screen sharing
+        console.error('Error sharing screen:', error);
+      }
+    });
+
+
+
+
+// Track the screen sharing state
+let isScreenSharingActive = false;
+
+// Add event listener to the screen share button
+shareScreenButton.addEventListener('click', toggleScreenShare);
+
+// Function to toggle the screen share placeholder
+function toggleScreenShare() {
+  // Toggle the screen sharing state
+  isScreenSharingActive = !isScreenSharingActive;
+
+  // Toggle the visibility of the screen share placeholder based on the state
+  if (isScreenSharingActive) {
+    screenVideo.style.display = 'block'; // Show the screen share placeholder
+  } else {
+    screenVideo.style.display = 'none'; // Hide the screen share placeholder
+  }
+}
+
+
+  
+  </script>
+</body>
+</html>
