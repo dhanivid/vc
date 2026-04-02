@@ -4,7 +4,7 @@
   <script src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
-  <style>img[alt="www.000webhost.com"]{display: none;</style>
+  <style>img[alt="www.000webhost.com"]{display: none;}</style>
   <style>
     /* Video chat styles (same as before) */
     body, h1, video, button {
@@ -42,17 +42,17 @@
       width: 480px;
       height: 360px;
       object-fit: cover;
-      background-color: #ccc;
+      background-color: #ccc; /* Placeholder background color */
     }
 
     #screenVideo {
-      display: none;
-      width: auto;
-      height: auto;
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      background-color: #eee;
+      display: none; /* Initially hide the screen share video */
+      width: auto; /* Set width to auto for maintaining aspect ratio */
+      height: auto; /* Set height to auto for maintaining aspect ratio */
+      max-width: 100%; /* Ensure video doesn't exceed container width */
+      max-height: 100%; /* Ensure video doesn't exceed container height */
+      object-fit: contain; /* Preserve aspect ratio without cropping */
+      background-color: #eee; /* Screen share placeholder background color */
     }
 
     .controls {
@@ -73,7 +73,7 @@
     }
 
     #shareScreenButton {
-      background-color: #ff8800;
+      background-color: #ff8800; /* Modified color for screen share button */
     }
 
     /* Styles for text chat iframe */
@@ -101,6 +101,7 @@
     }
 
     .room-hash-input {
+     
       font-size: 16px;
     }
 
@@ -115,6 +116,7 @@
       margin: 10px;
     }
 
+    /* Adjustments for positioning text chat iframe */
     .video-text-container {
       display: flex;
     }
@@ -146,106 +148,141 @@
         <button class="btn" id="toggleMicBtn">Mic On</button>
         <button class="btn" id="leaveBtn">Leave</button>
         <button class="btn" id="shareScreenButton">Share Screen</button>
+        
 
         <div class="room-hash-input">
-          <label>Enter Room Hash:</label>
-          <input type="text" id="roomHashInput">
+          <label for="roomHashInput">Enter Room Hash:</label>
+          <input type="text" id="roomHashInput" placeholder="Enter room hash...">
           <button class="enter-room-button" onclick="startboth()">Start Chat</button>
         </div>
-
         <button class="btn" id="refreshButton">Refresh Video Chat</button>
+        
       </div>
     </div>
 
+    <!-- Text Chat Section -->
+    
     <div class="text-chat-container">
       <h4>CHAT BOX</h4>
-      <iframe id="textChatFrame"></iframe>
-      <button onclick="startboth()">Start Chat</button>
+      <iframe id="textChatFrame" src=""></iframe>
+      <div class="room-hash-input">
+        <button class="enter-room-button" onclick="startboth()">Start Chat</button>
+      </div>
     </div>
 
-    <div id="v">
-      <h4>Video BOX</h4>
-      <iframe id="videoChatFrame"></iframe>
-    </div>
+<!-- Video Chat Section -->
+    
+<div id="v">
+  <h4>Video BOX</h4>
+  <iframe id="videoChatFrame" src=""></iframe>
+  <div class="room-hash-input">
+    <button class="enter-room-button" onclick="startVideoChat()">Start Chat</button>
   </div>
+</div>
 
-<script>
-// (Your original full JS exactly as you had — unchanged)
-
+  <script>
+    // Video Chat Code (same as before)
+  // Generate random room name if needed
 if (!location.hash) {
   location.hash = Math.floor(Math.random() * 0xFFFFFF).toString(16);
 }
 const roomHash = location.hash.substring(1);
-
+  
+// TODO: Replace with your own channel ID
 const drone = new ScaleDrone('rCjTly38VieH3Dmk');
+// Room name needs to be prefixed with 'observable-'
 const roomName = 'observable-' + roomHash;
-
 const configuration = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  iceServers: [{
+    urls: 'stun:stun.l.google.com:19302'
+  }]
 };
-
 let room;
 let pc;
-
+  
+  
+function onSuccess() {};
+function onError(error) {
+  console.error(error);
+};
+  
 drone.on('open', error => {
-  if (error) return console.error(error);
-
+  if (error) {
+    return console.error(error);
+  }
   room = drone.subscribe(roomName);
-
+  room.on('open', error => {
+    if (error) {
+      onError(error);
+    }
+  });
   room.on('members', members => {
+    console.log('MEMBERS', members);
     const isOfferer = members.length === 2;
     startWebRTC(isOfferer);
   });
 });
-
+  
 function sendMessage(message) {
-  drone.publish({ room: roomName, message });
+  drone.publish({
+    room: roomName,
+    message
+  });
 }
-
+  
 function startWebRTC(isOfferer) {
   pc = new RTCPeerConnection(configuration);
-
+  
   pc.onicecandidate = event => {
-    if (event.candidate) sendMessage({ candidate: event.candidate });
+    if (event.candidate) {
+      sendMessage({'candidate': event.candidate});
+    }
   };
-
+  
   if (isOfferer) {
     pc.onnegotiationneeded = () => {
-      pc.createOffer().then(localDescCreated);
-    };
+      pc.createOffer().then(localDescCreated).catch(onError);
+    }
   }
-
+  
   pc.onaddstream = event => {
     remoteVideo.srcObject = event.stream;
   };
-
-  navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-    .then(stream => {
-      localVideo.srcObject = stream;
-      pc.addStream(stream);
-    });
-
+  
+  navigator.mediaDevices.getUserMedia({
+    audio: true,
+    video: true,
+  }).then(stream => {
+    localVideo.srcObject = stream;
+    pc.addStream(stream);
+  }, onError);
+  
   room.on('data', (message, client) => {
-    if (client.id === drone.clientId) return;
-
+    if (client.id === drone.clientId) {
+      return;
+    }
+  
     if (message.sdp) {
       pc.setRemoteDescription(new RTCSessionDescription(message.sdp), () => {
         if (pc.remoteDescription.type === 'offer') {
-          pc.createAnswer().then(localDescCreated);
+          pc.createAnswer().then(localDescCreated).catch(onError);
         }
-      });
+      }, onError);
     } else if (message.candidate) {
-      pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+      pc.addIceCandidate(
+        new RTCIceCandidate(message.candidate), onSuccess, onError
+      );
     }
   });
 }
-
+  
 function localDescCreated(desc) {
-  pc.setLocalDescription(desc, () => {
-    sendMessage({ sdp: pc.localDescription });
-  });
+  pc.setLocalDescription(
+    desc,
+    () => sendMessage({'sdp': pc.localDescription}),
+    onError
+  );
 }
-</script>
-
+  </script>
 </body>
 </html>
