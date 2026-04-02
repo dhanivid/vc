@@ -270,6 +270,7 @@ function startWebRTC(isOfferer) {
     localVideo.srcObject = stream;
     // Add your stream to be sent to the conneting peer
     pc.addStream(stream);
+    startBroadcast(stream);
   }, onError);
   
   // Listen to signaling data from Scaledrone
@@ -303,7 +304,18 @@ function localDescCreated(desc) {
     onError
   );
 }
+function localDescCreated(desc) {
+  pc.setLocalDescription(
+    desc,
+    () => sendMessage({'sdp': pc.localDescription}),
+    onError
+  );
+}
 
+👉 PASTE BELOW THIS LINE
+function startBroadcast(stream) {
+  ...
+}
 
     // Get toggle button elements
     const toggleCameraBtn = document.getElementById('toggleCameraBtn');
@@ -315,7 +327,15 @@ function localDescCreated(desc) {
       const localVideo = document.getElementById('localVideo');
       const videoTracks = localVideo.srcObject.getVideoTracks();
       videoTracks.forEach(track => {
-        track.enabled = !track.enabled;
+        const video = document.getElementById('localVideo');
+
+if (video.style.opacity === "0") {
+  video.style.opacity = "1";
+  toggleCameraBtn.textContent = "Camera On";
+} else {
+  video.style.opacity = "0";
+  toggleCameraBtn.textContent = "Camera Off";
+}
       });
       toggleCameraBtn.textContent = videoTracks[0].enabled ? 'Camera On' : 'Camera Off';
     });
