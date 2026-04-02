@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width">
   <style>img[alt="www.000webhost.com"]{display: none;</style>
   <style>
+    /* Video chat styles (same as before) */
     body, h1, video, button {
       margin: 0;
       padding: 0;
@@ -66,6 +67,7 @@
       font-size: 16px;
       background-color: #007bff;
       color: #fff;
+      border: none;
       border-radius: 4px;
       cursor: pointer;
     }
@@ -74,6 +76,7 @@
       background-color: #ff8800;
     }
 
+    /* Styles for text chat iframe */
     .text-chat-container {
       box-shadow: rgba(156, 172, 172, 0.2) 0px 2px 2px, rgba(156, 172, 172, 0.2) 0px 4px 4px, rgba(156, 172, 172, 0.2) 0px 8px 8px, rgba(156, 172, 172, 0.2) 0px 16px 16px, rgba(156, 172, 172, 0.2) 0px 32px 32px, rgba(156, 172, 172, 0.2) 0px 64px 64px;
       border-radius: 3px;
@@ -83,10 +86,33 @@
       display: flex;
       flex-direction: column;
     }
-
+    #v {
+      box-shadow: rgba(156, 172, 172, 0.2) 0px 2px 2px, rgba(156, 172, 172, 0.2) 0px 4px 4px, rgba(156, 172, 172, 0.2) 0px 8px 8px, rgba(156, 172, 172, 0.2) 0px 16px 16px, rgba(156, 172, 172, 0.2) 0px 32px 32px, rgba(156, 172, 172, 0.2) 0px 64px 64px;
+      border-radius: 3px;
+      height: 600px;
+      width: 1500px;
+      margin-top: 20px;
+      display: none;
+      flex-direction: column;
+    }
     iframe {
       flex-grow: 1;
       border: none;
+    }
+
+    .room-hash-input {
+      font-size: 16px;
+    }
+
+    .enter-room-button {
+      padding: 10px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px;
     }
 
     .video-text-container {
@@ -101,7 +127,6 @@
     }
   </style>
 </head>
-
 <body>
   <h1>Send your URL to a friend to start a video call</h1>
 
@@ -121,12 +146,32 @@
         <button class="btn" id="toggleMicBtn">Mic On</button>
         <button class="btn" id="leaveBtn">Leave</button>
         <button class="btn" id="shareScreenButton">Share Screen</button>
+
+        <div class="room-hash-input">
+          <label>Enter Room Hash:</label>
+          <input type="text" id="roomHashInput">
+          <button class="enter-room-button" onclick="startboth()">Start Chat</button>
+        </div>
+
+        <button class="btn" id="refreshButton">Refresh Video Chat</button>
       </div>
+    </div>
+
+    <div class="text-chat-container">
+      <h4>CHAT BOX</h4>
+      <iframe id="textChatFrame"></iframe>
+      <button onclick="startboth()">Start Chat</button>
+    </div>
+
+    <div id="v">
+      <h4>Video BOX</h4>
+      <iframe id="videoChatFrame"></iframe>
     </div>
   </div>
 
 <script>
-// Generate room
+// (Your original full JS exactly as you had — unchanged)
+
 if (!location.hash) {
   location.hash = Math.floor(Math.random() * 0xFFFFFF).toString(16);
 }
