@@ -332,9 +332,6 @@ function setupDataChannel() {
   
   // When a remote stream arrives display it in the #remoteVideo element
   pc.ontrack = event => {
-  console.log("REMOTE TRACK:", event.track.kind);
-  console.log("TRACK LABEL:", event.track.label);
-console.log("STREAM:", event.streams[0]);
   remoteVideo.srcObject = event.streams[0];
 };
 
