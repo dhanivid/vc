@@ -3,49 +3,399 @@
 <head>
   <meta charset="utf-8">
   <title>Admin</title>
+  <style>
+  #adminVideos {
+    display: flex;
+    gap: 20px;
+    margin-top: 20px;
+  }
+
+  #adminVideos video {
+    width: 400px;
+    height: 300px;
+    background: #222;
+    object-fit: cover;
+  }
+</style>
+
 </head>
 
 <body>
 
   <h1>Admin Monitor</h1>
+<input type="text" id="roomHashInput" placeholder="Enter room hash">
+<button id="joinRoomButton">Join Room</button>
+<div id="adminVideos">
+
+  <div>
+    <h3>User 1</h3>
+    <video id="user1Video" autoplay playsinline></video>
+  </div>
+
+  <div>
+    <h3>User 2</h3>
+    <video id="user2Video" autoplay playsinline></video>
+  </div>
+
+</div>
 
   <div id="logs"></div>
 
   <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
 
-  <script>
+<script>
 
-    const drone = new ScaleDrone('rCjTly38VieH3Dmk');
+const drone = new ScaleDrone('rCjTly38VieH3Dmk');
 
-    const adminRoomName = 'observable-admin';
+let adminRoom = null;
+let monitorPc = null;
+let currentRoom = null;
+let currentRoomName = null;
 
-    drone.on('open', error => {
+const adminRoomName = 'observable-admin';
 
-      if (error) {
-        return console.error(error);
-      }
 
-      const adminRoom = drone.subscribe(adminRoomName);
+// =====================================================
+// SCALED RONE CONNECTION
+// =====================================================
 
-      adminRoom.on('open', error => {
+drone.on('open', error => {
 
-        if (error) {
-          return console.error(error);
+  if (error) {
+    return console.error("❌ ScaleDrone error:", error);
+  }
+
+  console.log("✅ ScaleDrone connected");
+
+
+  // Subscribe to admin room
+  adminRoom = drone.subscribe(adminRoomName);
+
+
+  adminRoom.on('open', error => {
+
+    if (error) {
+      return console.error("❌ Admin room error:", error);
+    }
+
+    console.log("✅ Connected to admin room");
+
+  });
+
+
+  // ---------------------------------------------------
+  // ADMIN ROOM MESSAGES
+  // ---------------------------------------------------
+
+  adminRoom.on('data', message => {
+
+    console.log("📩 Admin room message:", message);
+
+    if (message.type === "member_join") {
+
+      const log = document.createElement('div');
+
+      log.textContent =
+        `🟢 Member joined Room: ${message.room} — User: ${message.member.id}`;
+
+      document.getElementById('logs').appendChild(log);
+
+    }
+
+  });
+
+});
+
+
+// =====================================================
+// JOIN USER ROOM
+// =====================================================
+
+document.getElementById('joinRoomButton').addEventListener('click', () => {
+
+  const roomHash =
+    document.getElementById('roomHashInput').value.trim();
+
+  if (roomHash === '') {
+    return;
+  }
+
+
+  currentRoomName = 'observable-' + roomHash;
+
+  console.log("Joining room:", currentRoomName);
+
+
+  // Subscribe to user's room
+  currentRoom = drone.subscribe(currentRoomName);
+
+
+  // ---------------------------------------------------
+  // ROOM OPEN
+  // ---------------------------------------------------
+
+  currentRoom.on('open', error => {
+
+    if (error) {
+      return console.error("❌ ROOM ERROR:", error);
+    }
+
+    console.log("✅ Joined room:", roomHash);
+
+  });
+
+
+  // ---------------------------------------------------
+  // ROOM MEMBERS
+  // ---------------------------------------------------
+
+  currentRoom.on('members', members => {
+
+    console.log("👥 Members in room:", members);
+
+
+    const otherMembers = members.filter(
+      member => member.id !== drone.clientId
+    );
+
+
+    console.log("👥 Other users:", otherMembers);
+
+
+    // Tell the user that admin wants to monitor
+    otherMembers.forEach(member => {
+
+      console.log(
+        "👁️ Asking user to allow monitoring:",
+        member.id
+      );
+
+
+      drone.publish({
+
+        room: currentRoomName,
+
+        message: {
+          type: "admin_monitor",
+          adminId: drone.clientId
         }
-
-        console.log("✅ Connected to admin room");
-
-      });
-
-      adminRoom.on('data', (message, client) => {
-
-        console.log("📩 ADMIN MESSAGE:", message);
 
       });
 
     });
 
-  </script>
+  });
 
-</body>
-</html>
+
+  // ===================================================
+  // WEBRTC SIGNALING
+  // ===================================================
+
+  currentRoom.on('data', (message, client) => {
+
+
+    // Ignore our own messages
+    if (client.id === drone.clientId) {
+      return;
+    }
+
+
+    console.log("📩 Room message:", message);
+
+
+    // =================================================
+    // USER → ADMIN : OFFER
+    // =================================================
+
+    if (message.type === "admin_offer") {
+
+      console.log("📥 Admin offer received");
+
+
+      monitorPc = new RTCPeerConnection({
+
+        iceServers: [
+
+          {
+            urls: 'stun:stun.l.google.com:19302'
+          },
+
+          {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+
+          {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          }
+
+        ]
+
+      });
+
+
+      // ------------------------------------------------
+      // USER VIDEO ARRIVES
+      // ------------------------------------------------
+
+      monitorPc.ontrack = event => {
+
+        console.log("🎥 USER VIDEO RECEIVED");
+
+        const video =
+          document.getElementById('user1Video');
+
+        video.srcObject = event.streams[0];
+
+        video.play()
+          .then(() => {
+            console.log("▶️ USER VIDEO PLAYING");
+          })
+          .catch(error => {
+            console.error(
+              "❌ VIDEO PLAY ERROR:",
+              error
+            );
+          });
+
+      };
+
+
+      // ------------------------------------------------
+      // ADMIN → USER : ICE
+      // ------------------------------------------------
+
+      monitorPc.onicecandidate = event => {
+
+        if (event.candidate) {
+
+          console.log(
+            "📤 Sending admin ICE candidate"
+          );
+
+
+          drone.publish({
+
+            room: currentRoomName,
+
+            message: {
+
+              type: "admin_candidate",
+
+              adminId: message.adminId,
+
+              candidate: event.candidate
+
+            }
+
+          });
+
+        }
+
+      };
+
+
+      // ------------------------------------------------
+      // ACCEPT USER OFFER
+      // ------------------------------------------------
+
+      monitorPc.setRemoteDescription(
+
+        new RTCSessionDescription(message.sdp)
+
+      )
+
+      .then(() => {
+
+        console.log("✅ User offer accepted");
+
+        return monitorPc.createAnswer();
+
+      })
+
+      .then(answer => {
+
+        return monitorPc.setLocalDescription(answer);
+
+      })
+
+      .then(() => {
+
+        console.log("📤 Sending admin answer");
+
+
+        drone.publish({
+
+          room: currentRoomName,
+
+          message: {
+
+            type: "admin_answer",
+
+            adminId: message.adminId,
+
+            sdp: monitorPc.localDescription
+
+          }
+
+        });
+
+
+        console.log("✅ Admin answer sent");
+
+      })
+
+      .catch(error => {
+
+        console.error(
+          "❌ ADMIN ANSWER ERROR:",
+          error
+        );
+
+      });
+
+    }
+
+
+    // =================================================
+    // USER → ADMIN : ICE CANDIDATE
+    // =================================================
+
+    else if (message.type === "user_admin_candidate") {
+
+      console.log(
+        "📥 User ICE candidate received"
+      );
+
+
+      if (monitorPc) {
+
+        monitorPc.addIceCandidate(
+
+          new RTCIceCandidate(
+            message.candidate
+          )
+
+        )
+
+        .catch(error => {
+
+          console.error(
+            "❌ ICE candidate error:",
+            error
+          );
+
+        });
+
+      }
+
+    }
+
+  });
+
+});
+
+</script>
