@@ -45,15 +45,6 @@
       background-color: #ccc; /* Placeholder background color */
     }
 
-    #screenVideo {
-      display: none; /* Initially hide the screen share video */
-      width: auto; /* Set width to auto for maintaining aspect ratio */
-      height: auto; /* Set height to auto for maintaining aspect ratio */
-      max-width: 100%; /* Ensure video doesn't exceed container width */
-      max-height: 100%; /* Ensure video doesn't exceed container height */
-      object-fit: contain; /* Preserve aspect ratio without cropping */
-      background-color: #eee; /* Screen share placeholder background color */
-    }
 
     .controls {
       display: flex;
@@ -71,119 +62,135 @@
       border-radius: 4px;
       cursor: pointer;
     }
+   #chatBox {
+  width: 350px;
+  height: 530px;
+  background: white;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
 
-    #shareScreenButton {
-      background-color: #ff8800; /* Modified color for screen share button */
-    }
 
-    /* Styles for text chat iframe */
-    .text-chat-container {
-      box-shadow: rgba(156, 172, 172, 0.2) 0px 2px 2px, rgba(156, 172, 172, 0.2) 0px 4px 4px, rgba(156, 172, 172, 0.2) 0px 8px 8px, rgba(156, 172, 172, 0.2) 0px 16px 16px, rgba(156, 172, 172, 0.2) 0px 32px 32px, rgba(156, 172, 172, 0.2) 0px 64px 64px;
-      border-radius: 3px;
-      height: 600px;
-      width: 405px;
-      margin-top: 20px;
-      display: flex;
-      flex-direction: column;
-    }
-    #v {
-      box-shadow: rgba(156, 172, 172, 0.2) 0px 2px 2px, rgba(156, 172, 172, 0.2) 0px 4px 4px, rgba(156, 172, 172, 0.2) 0px 8px 8px, rgba(156, 172, 172, 0.2) 0px 16px 16px, rgba(156, 172, 172, 0.2) 0px 32px 32px, rgba(156, 172, 172, 0.2) 0px 64px 64px;
-      border-radius: 3px;
-      height: 600px;
-      width: 1500px;
-      margin-top: 20px;
-      display: none;
-      flex-direction: column;
-    }
-    iframe {
-      flex-grow: 1;
-      border: none;
-    }
+#messages {
+  flex: 1;
+  padding: 15px;
+  overflow-y: auto;
+}
 
-    .room-hash-input {
-     
-      font-size: 16px;
-    }
+#chatInputArea {
+  display: flex;
+  border-top: 1px solid #ddd;
+}
 
-    .enter-room-button {
-      padding: 10px;
-      font-size: 16px;
-      background-color: #007bff;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      margin: 10px;
-    }
+#chatInput {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  outline: none;
+  font-size: 15px;
+}
 
-    /* Adjustments for positioning text chat iframe */
-    .video-text-container {
-      display: flex;
-    }
+#sendChatButton {
+  padding: 12px 20px;
+  background: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+.myMessage {
+  background: #007bff;
+  color: white;
+  padding: 10px 14px;
+  border-radius: 15px;
+  margin: 6px 0;
+  margin-left: auto;
+  width: fit-content;
+  max-width: 70%;
+}
 
-    .video-column {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-right: 40px;
-    }
+.theirMessage {
+  background: #e5e5e5;
+  color: black;
+  padding: 10px 14px;
+  border-radius: 15px;
+  margin: 6px 0;
+  margin-right: auto;
+  width: fit-content;
+  max-width: 70%;
+}
+.main-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 25px;
+}
+
+.video-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#screenContainer {
+  display: none;
+  margin-top: 10px;
+}
+
+#screenVideo {
+  width: 700px;
+  height: 400px;
+  object-fit: contain;
+  background: black;
+}
+
   </style>
 </head>
 <body>
   <h1>Send your URL to a friend to start a video call</h1>
 
-  <div class="video-text-container">
-    <div class="video-column">
-      <div class="video-container">
-        <video id="localVideo" autoplay muted></video>
-        <video id="remoteVideo" autoplay></video>
-      </div>
+ <div class="main-container">
 
-      <div class="ss-container">
-        <video id="screenVideo" autoplay></video>
-      </div>
+  <div class="video-column">
 
-      <div class="controls">
-        <button class="btn" id="toggleCameraBtn">Camera On</button>
-        <button class="btn" id="toggleMicBtn">Mic On</button>
-        <button class="btn" id="leaveBtn">Leave</button>
-        <button class="btn" id="shareScreenButton">Share Screen</button>
-        
-
-        <div class="room-hash-input">
-          <label for="roomHashInput">Enter Room Hash:</label>
-          <input type="text" id="roomHashInput" placeholder="Enter room hash...">
-          <button class="enter-room-button" onclick="startboth()">Start Chat</button>
-        </div>
-        <button class="btn" id="refreshButton">Refresh Video Chat</button>
-        
-      </div>
-    </div>
-
-    <!-- Text Chat Section -->
-    
-    <div class="text-chat-container">
-      <h4>CHAT BOX</h4>
-      <iframe id="textChatFrame" src=""></iframe>
-      <div class="room-hash-input">
-       
-        
-        
-        <button class="enter-room-button" onclick="startboth()">Start Chat</button>
-      </div>
-    </div>
-<!-- Video Chat Section -->
-    
-<div id="v">
-  <h4>Video BOX</h4>
-  <iframe id="videoChatFrame" src=""></iframe>
-  <div class="room-hash-input">
-   
-    
-    
-    <button class="enter-room-button" onclick="startVideoChat()">Start Chat</button>
-  </div>
+    <div class="video-container">
+      <video id="localVideo" autoplay muted></video>
+      <video id="remoteVideo" autoplay></video>
+      <div id="screenContainer">
+        <div id="remoteScreenContainer">
+  <video id="remoteScreenVideo" autoplay></video>
 </div>
+
+  <video id="screenVideo" autoplay></video>
+</div>
+
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="toggleCameraBtn">Camera On</button>
+      <button class="btn" id="toggleMicBtn">Mic On</button>
+      <button class="btn" id="leaveBtn">Leave</button>
+    </div>
+
+  </div>
+
+
+  <div id="chatBox">
+
+    <div id="messages"></div>
+
+    <div id="chatInputArea">
+      <input id="chatInput" type="text" placeholder="Type a message">
+      <button id="sendChatButton">Send</button>
+    </div>
+
+  </div>
+
+</div>
+
+
+    
+
 
   <script>
     // Video Chat Code (same as before)
@@ -216,6 +223,10 @@ const configuration = {
 };
 let room;
 let pc;
+let dataChannel;
+let localStream;
+
+
   
   
 function onSuccess() {};
@@ -254,6 +265,56 @@ function sendMessage(message) {
 function startWebRTC(isOfferer) {
   pc = new RTCPeerConnection(configuration);
   
+  if (isOfferer) {
+  dataChannel = pc.createDataChannel('chat');
+  setupDataChannel();
+}
+
+pc.ondatachannel = event => {
+  dataChannel = event.channel;
+  setupDataChannel();
+};
+
+
+function setupDataChannel() {
+
+  dataChannel.onopen = () => {
+    console.log("🎉 DATA CHANNEL OPEN!");
+  };
+
+  dataChannel.onmessage = event => {
+
+  const data = JSON.parse(event.data);
+
+  console.log("MESSAGE RECEIVED:", data);
+
+  // Camera status message
+  if (data.type === 'camera') {
+
+    if (data.enabled === false) {
+      remoteVideo.style.backgroundColor = 'black';
+    } else {
+      remoteVideo.style.backgroundColor = '#ccc';
+    }
+
+    return;
+  }
+
+  // Normal chat message
+  const messageElement = document.createElement('div');
+
+  messageElement.textContent = data.content;
+
+  messageElement.classList.add('theirMessage');
+
+  document.getElementById('messages').appendChild(messageElement);
+};
+
+
+
+}
+
+
   // 'onicecandidate' notifies us whenever an ICE agent needs to deliver a
   // message to the other peer through the signaling server
   pc.onicecandidate = event => {
@@ -270,18 +331,26 @@ function startWebRTC(isOfferer) {
   }
   
   // When a remote stream arrives display it in the #remoteVideo element
-  pc.onaddstream = event => {
-    remoteVideo.srcObject = event.stream;
-  };
+  pc.ontrack = event => {
+  console.log("REMOTE TRACK:", event.track.kind);
+  console.log("TRACK LABEL:", event.track.label);
+console.log("STREAM:", event.streams[0]);
+  remoteVideo.srcObject = event.streams[0];
+};
+
   
   navigator.mediaDevices.getUserMedia({
     audio: true,
     video: true,
   }).then(stream => {
+    localStream = stream;
     // Display your local video in #localVideo element
     localVideo.srcObject = stream;
     // Add your stream to be sent to the conneting peer
-    pc.addStream(stream);
+    stream.getTracks().forEach(track => {
+  pc.addTrack(track, stream);
+});
+
   }, onError);
   
   // Listen to signaling data from Scaledrone
@@ -321,16 +390,33 @@ function localDescCreated(desc) {
     const toggleCameraBtn = document.getElementById('toggleCameraBtn');
     const toggleMicBtn = document.getElementById('toggleMicBtn');
     const leaveBtn = document.getElementById('leaveBtn');
+    const screenContainer =  document.getElementById('screenContainer');
+    const screenVideo =  document.getElementById('screenVideo');
+
+let screenStream = null;
+
+
 
     // Toggle camera on/off
-    toggleCameraBtn.addEventListener('click', () => {
-      const localVideo = document.getElementById('localVideo');
-      const videoTracks = localVideo.srcObject.getVideoTracks();
-      videoTracks.forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      toggleCameraBtn.textContent = videoTracks[0].enabled ? 'Camera On' : 'Camera Off';
-    });
+   toggleCameraBtn.addEventListener('click', () => {
+
+  const localVideo = document.getElementById('localVideo');
+  const videoTracks = localVideo.srcObject.getVideoTracks();
+
+  videoTracks.forEach(track => {
+    track.enabled = !track.enabled;
+  });
+
+  if (videoTracks[0].enabled) {
+    toggleCameraBtn.textContent = 'Camera On';
+    localVideo.style.backgroundColor = '#ccc';
+  } else {
+    toggleCameraBtn.textContent = 'Camera Off';
+    localVideo.style.backgroundColor = 'black';
+  }
+});
+
+
 
     // Toggle microphone on/off
     toggleMicBtn.addEventListener('click', () => {
@@ -377,81 +463,36 @@ function localDescCreated(desc) {
       document.body.appendChild(leaveMessage);
     });
 
-    // JavaScript code for handling screen sharing
-    const shareScreenButton = document.getElementById('shareScreenButton');
-    const screenVideo = document.getElementById('screenVideo');
-    let mediaStream = null;
+//sending code
+const chatInput = document.getElementById('chatInput');
+const sendChatButton = document.getElementById('sendChatButton');
 
-    // Add a click event listener to the share screen button
-    shareScreenButton.addEventListener('click', async () => {
-      try {
-        if (mediaStream === null) {
-          // Start screen sharing
-          mediaStream = await navigator.mediaDevices.getDisplayMedia();
-          screenVideo.srcObject = mediaStream;
-          shareScreenButton.textContent = 'Stop Sharing';
-        } else {
-          // Stop screen sharing
-          mediaStream.getTracks().forEach(track => track.stop());
-          screenVideo.srcObject = null;
-          mediaStream = null;
-          shareScreenButton.textContent = 'Share Screen';
-        }
-      } catch (error) {
-        // Handle any errors that occur during screen sharing
-        console.error('Error sharing screen:', error);
-      }
-    });
+sendChatButton.addEventListener('click', () => {
 
+  const message = chatInput.value.trim();
 
-
-
-// Track the screen sharing state
-let isScreenSharingActive = false;
-
-// Add event listener to the screen share button
-shareScreenButton.addEventListener('click', toggleScreenShare);
-
-// Function to toggle the screen share placeholder
-function toggleScreenShare() {
-  // Toggle the screen sharing state
-  isScreenSharingActive = !isScreenSharingActive;
-
-  // Toggle the visibility of the screen share placeholder based on the state
-  if (isScreenSharingActive) {
-    screenVideo.style.display = 'block'; // Show the screen share placeholder
-  } else {
-    screenVideo.style.display = 'none'; // Hide the screen share placeholder
+  if (message === '') {
+    return;
   }
-}
 
-function startboth() {
-  const roomHashInput = document.getElementById('roomHashInput');
-  const roomHash = roomHashInput.value.trim(); // Get the trimmed input value
-  startVideoChat(roomHash); // Pass the room hash to the function
-  startTextChat();
-}
+  const data = {
+    content: message,
+    sender: "me"
+  };
 
+  dataChannel.send(JSON.stringify(data));
 
-      // Function to start the video chat by updating the iframe src
-      function startVideoChat(roomHash) {
-  const videoChatFrame = document.getElementById('videoChatFrame');
-  videoChatFrame.src = `vidchat.html#${roomHash}`;
-}
+  const messageElement = document.createElement('div');
 
+  messageElement.textContent = data.content;
 
-    // Function to start the text chat by updating the iframe src
-    function startTextChat() {
-     
-      const textChatFrame = document.getElementById('textChatFrame');
-      textChatFrame.src = `textchat.html#${234873}`;
-      
-    }
-    const refreshButton = document.getElementById('refreshButton');
-refreshButton.addEventListener('click', () => {
-  const videoChatFrame = document.getElementById('videoChatFrame');
-  videoChatFrame.contentWindow.location.reload(); // Reload the iframe content
+  messageElement.classList.add('myMessage');
+
+  document.getElementById('messages').appendChild(messageElement);
+
+  chatInput.value = '';
 });
+
 
 
   </script>
