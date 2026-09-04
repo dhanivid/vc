@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Admin</title>
+</head>
+
+<body>
+
+  <h1>Admin Monitor</h1>
+
+  <div id="logs"></div>
+
+  <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
+
+  <script>
+
+    const drone = new ScaleDrone('rCjTly38VieH3Dmk');
+
+    const adminRoomName = 'observable-admin';
+
+    drone.on('open', error => {
+
+      if (error) {
+        return console.error(error);
+      }
+
+      const adminRoom = drone.subscribe(adminRoomName);
+
+      adminRoom.on('open', error => {
+
+        if (error) {
+          return console.error(error);
+        }
+
+        console.log("✅ Connected to admin room");
+
+      });
+
+      adminRoom.on('data', (message, client) => {
+
+        console.log("📩 ADMIN MESSAGE:", message);
+
+      });
+
+    });
+
+  </script>
+
+</body>
+</html>
